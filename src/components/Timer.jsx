@@ -10,7 +10,7 @@ const red = '#f54e4e';
 const green = '#4aec8c';
 
 function Timer() {
-    const [isPaused, setIsPaused] = useState(true);
+    const [isPaused, setIsPaused] = useState(false);
     const [secondsLeft, setSecondsLeft] = useState(0);
     const [mode, setMode] = useState('work'); //work/break/null
     
@@ -21,10 +21,26 @@ function Timer() {
     const settingsInfo = useContext(SettingsContext);
 
     const totalSeconds = (mode === 'work' ? settingsInfo.workMinutes : settingsInfo.breakMinutes) * 60;
-    const percentage = Math.round(secondsLeft / totalSeconds);
+    const percentage = Math.round(secondsLeft / totalSeconds * 100);
+
+    const minutes = Math.floor(secondsLeft / 60);
+    let seconds = secondsLeft % 60;
+    if (seconds < 10) seconds = '0' + seconds;
 
     useEffect(() => {
-        initTimer();
+        const switchMode = () => {
+            const nextMode = modeRef.current === 'work' ? 'break' : 'work';
+            const nextSeconds = (nextMode === 'work' ? settingsInfo.workMinutes : settingsInfo.breakMinutes) * 60;
+            
+            setMode(nextMode);
+            modeRef.current = nextMode;
+
+            setSecondsLeft(nextSeconds);
+            secondsLeftRef.current = nextSeconds;
+        }
+
+        secondsLeftRef.current = settingsInfo.workMinutes * 60;
+        setSecondsLeft(secondsLeftRef.current);
 
         // TODO: setInterval is used here, but it might desync. If it does, be sure to change it in the next branch
         const interval = setInterval(() => {
@@ -40,23 +56,8 @@ function Timer() {
         }, 1000);
 
         // Clear interval on component unmount
-        return interval;
+        return () => clearInterval(interval);
     }, [settingsInfo]);
-
-    const initTimer = () => {
-        setSecondsLeft(settingsInfo.workMinutes * 60);
-    };
-
-    const switchMode = () => {
-        const nextMode = modeRef.current === 'work' ? 'break' : 'work';
-        const nextSeconds = (nextMode === 'work' ? settingsInfo.workMinutes : settingsInfo.breakMinutes) * 60;
-        
-        setMode(nextMode);
-        modeRef.current = nextMode;
-
-        setSecondsLeft(nextSeconds);
-        secondsLeftRef.current = nextSeconds;
-    }
 
     const tick = () => {
         secondsLeftRef.current--;
@@ -67,15 +68,17 @@ function Timer() {
         <div>
             <CircularProgressbar
                 value={percentage} 
-                text={`${percentage}%`} 
+                text={minutes + ':' + seconds} 
                 styles={buildStyles({ 
                     textColor: '#fff',
-                    pathColor: red,
+                    pathColor: mode === 'work' ? red : green,
                     trailColor: 'rgba(255, 255, 255, .2)'
                 })}
             />
             <div style={{marginTop:'20px'}}>
-                {isPaused ? <PlayButton /> : <PauseButton />}
+                {isPaused
+                    ? <PlayButton onClick={() => { setIsPaused(false); isPausedRef.current = false; }} />
+                    : <PauseButton onClick={() => { setIsPaused(true); isPausedRef.current = true; }} />}
             </div>
             <div style={{marginTop:'20px'}}>
                 <SettingsButton onClick={() => {
